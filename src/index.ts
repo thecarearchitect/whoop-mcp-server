@@ -737,4 +737,4 @@ async function main(): Promise<void> {
 main().catch(error => {
 	process.stderr.write(`Fatal error: ${error}\n`);
 	process.exit(1);
-});Add OAuth proxy for Claude.ai connector
+}); 
