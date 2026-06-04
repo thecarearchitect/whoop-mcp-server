@@ -2,7 +2,7 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { CallToolRequestSchema, ListToolsRequestSchema, ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
-import express, { type Request, type Response } from 'express';
+import express, { type Request, type Response } from 'express'; import { createHash } from 'node:crypto';
 import { WhoopClient } from './whoop-client.js';
 import { WhoopDatabase } from './database.js';
 import { WhoopSync } from './sync.js';
@@ -602,7 +602,7 @@ async function main(): Promise<void> {
 						res.status(400).json({ error: 'invalid_grant', error_description: 'Missing code_verifier for PKCE' });
 						return;
 					}
-					const hash = crypto.createHash('sha256').update(code_verifier).digest('base64url');
+					const hash = createHash('sha256').update(code_verifier).digest('base64url');
 					if (hash !== issued.codeChallenge) {
 						res.status(400).json({ error: 'invalid_grant', error_description: 'Invalid code_verifier' });
 						return;
