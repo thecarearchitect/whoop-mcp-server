@@ -2,7 +2,8 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { CallToolRequestSchema, ListToolsRequestSchema, ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
-import express, { type Request, type Response } from 'express'; import { createHash } from 'node:crypto';
+import express, { type Request, type Response } from 'express';
+import { createHash } from 'node:crypto';
 import { WhoopClient } from './whoop-client.js';
 import { WhoopDatabase } from './database.js';
 import { WhoopSync } from './sync.js';
@@ -395,7 +396,11 @@ async function main(): Promise<void> {
 		process.stderr.write('Whoop MCP server running on stdio\n');
 	} else {
 		const app = express();
-		app.use(express.json());
+
+		// IMPORTANT: Do NOT apply express.json() globally!
+		// The MCP SDK's StreamableHTTPServerTransport reads the raw body stream itself.
+		// If express.json() consumes the stream first, handleRequest() gets an empty body → 400.
+		// Instead, apply JSON parsing only to routes that need it (register, etc.).
 
 		// ==================================================
 		// OAuth Discovery Endpoints (NEW)
@@ -446,7 +451,7 @@ async function main(): Promise<void> {
 		// ==================================================
 
 		// Claude.ai registers as an OAuth client
-		app.post('/register', (req: Request, res: Response) => {
+		app.post('/register', express.json(), (req: Request, res: Response) => {
 			const { client_name, redirect_uris, grant_types, response_types, token_endpoint_auth_method, client_uri } = req.body;
 			const clientId = crypto.randomUUID();
 			res.status(201).json({
@@ -694,7 +699,14 @@ async function main(): Promise<void> {
 					await server.connect(transport);
 				}
 
-				await transport.handleRequest(req, res);
+				try {
+					await transport.handleRequest(req, res);
+				} catch (err) {
+					console.error('[MCP] handleRequest error:', err);
+					if (!res.headersSent) {
+						res.status(500).json({ error: 'internal_error', message: String(err) });
+					}
+				}
 				return;
 			}
 
@@ -737,4 +749,4 @@ async function main(): Promise<void> {
 main().catch(error => {
 	process.stderr.write(`Fatal error: ${error}\n`);
 	process.exit(1);
-}); 
+});
